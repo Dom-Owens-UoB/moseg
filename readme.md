@@ -10,7 +10,7 @@ Reference
 package `mosumsr` installable via
 
 ```
-devtools::install_github("https://github.com/Dom-Owens-UoB/sparse_mosum", subdir = "mosumsr")
+devtools::install_github("https://github.com/Dom-Owens-UoB/mosumsr")
 ```
  
 
