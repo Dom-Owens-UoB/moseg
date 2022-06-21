@@ -1,0 +1,25 @@
+{
+    "id": "7C3F8D2A",
+    "path": "~/Documents/sparse_mosum/mosumsr/R/data.R",
+    "project_path": "R/data.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1633614097326.0,
+    "source_on_save": false,
+    "relative_order": 5,
+    "properties": {
+        "cursorPosition": "26,3",
+        "scrollLine": "0",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1644840742,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1644840742702,
+    "read_only": false,
+    "read_only_alternatives": []
+}

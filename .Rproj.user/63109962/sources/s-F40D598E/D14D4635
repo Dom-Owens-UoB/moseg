@@ -1,0 +1,25 @@
+{
+    "id": "D14D4635",
+    "path": "~/Documents/sparse_mosum/mosumsr/R/sim.R",
+    "project_path": "R/sim.R",
+    "type": "r_source",
+    "hash": "0",
+    "contents": "",
+    "dirty": false,
+    "created": 1644834188529.0,
+    "source_on_save": false,
+    "relative_order": 4,
+    "properties": {
+        "cursorPosition": "27,25",
+        "scrollLine": "20",
+        "Source": "Source"
+    },
+    "folds": "",
+    "lastKnownWriteTime": 1655454722,
+    "encoding": "UTF-8",
+    "collab_server": "",
+    "source_window": "",
+    "last_content_update": 1655454722637,
+    "read_only": false,
+    "read_only_alternatives": []
+}
