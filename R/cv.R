@@ -36,8 +36,8 @@
 #'
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
-#' eq_thr <- mosumsr.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
-mosumsr.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"),
+#' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
+moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"),
                        path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
                        ncores = NULL, ...){
   n <- dim(X)[1]
@@ -116,10 +116,9 @@ mosumsr.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c
               threshold = thr, lambda = out_lambda,
               detectors = ms, cv= out_cv, model_list = out_list,
               plots = pl, family = family)
-  attr(out, "class") <- "mosumsr"
+  attr(out, "class") <- "moseg"
   return(out)
 }
-# try_cv <- mosumsr.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=240, ncores = 4, path.length = 10, max.cps = 4)
 
 #' @title get mosum detectors
 #' @keywords internal
@@ -160,7 +159,6 @@ get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","
   stopCluster(cl)
   return(list(coeffs=coeffs, mosum=mosum))
 }
-# try_cv_detectors <- get.cv.detectors(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, c(.01,.1), ncores = 2)
 
 
 
@@ -230,8 +228,6 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
   out_list <- list(model = out, error = error, preds = preds, coeffs = t(coeffs))
   return(out_list)
 }
-# try_fit_cv <- fit.cv(as.matrix(eqX), cps = c(100,200), ranks = c(1,2), max.cps = 2, as.matrix(eqdata[,9]),lambda = .1)
-
 
 
 
@@ -265,14 +261,14 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' \itemize{
 #'   \item{\code{anchors}}{ integer vector of estimated change points}
 #'   \item{\code{refined_cps}}{ integer vector of refined change points}
-#'   \item{\code{mosumsr.G}}{ list of `mosumsr` objects corresponding to `Gset` in ascending order}
+#'   \item{\code{moseg.G}}{ list of `moseg` objects corresponding to `Gset` in ascending order}
 #' }
 #' @export
 #'
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
-#' eq_mosum <- mosumsr.multiscale.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
-mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"),
+#' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
+moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"),
                                   threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
                                   ncores = NULL, ...){
   n <- dim(X)[1]
@@ -298,19 +294,19 @@ mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("
   Gset <- sort(Gset) #into ascending order
   Glen <- length(Gset)
   anchors <-  c()
-  mosumsr.G <- as.list(1:Glen)
+  moseg.G <- as.list(1:Glen)
   Reject <- 0
   for (ii in 1:Glen){
-    mosumsr.G[[ii]] <-  mosumsr.cv(X, y, G= Gset[ii], lambda =  lambda, family = family,
+    moseg.G[[ii]] <-  moseg.cv(X, y, G= Gset[ii], lambda =  lambda, family = family,
                                    grid.resolution = grid.resolution[ii], nu = nu,
                                    do.refinement = FALSE, do.plot = do.plot, ncores = ncores, ...)
-    if(length(mosumsr.G[[ii]]$cps)>0) Reject <- 1
+    if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
   }
   refined_cps <- NULL
   if(Reject){
     interval <- matrix(0, n, n) #matrix(0, Glen, n) #detection set
     # anchor sets
-    anchors <- mosumsr.G[[1]]$cps
+    anchors <- moseg.G[[1]]$cps
     if(!is.null(anchors)){
       for (ii in 1:length(anchors)) {
         L_ <- max(1, anchors[ii]-Gset[1]+1)
@@ -321,7 +317,7 @@ mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("
     }
     if(Glen > 1){
       for (ii in 2:Glen){
-        K <- mosumsr.G[[ii]]$cps
+        K <- moseg.G[[ii]]$cps
         if(length(K)>0){
           if(is.null(anchors)){
             anchors <- K
@@ -355,7 +351,7 @@ mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("
     # cluster sets
     if(Glen > 1){
       for (ii in 2:Glen){
-        K <- mosumsr.G[[ii]]$cps
+        K <- moseg.G[[ii]]$cps
         if(is.null(cps)) cps <- K
         else for (cp in K) {
           cond1 <- FALSE
@@ -374,7 +370,7 @@ mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("
     if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     refined_cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
-    if(is.null(lambda)) lambda <- mosumsr.G[[1]]$lambda #| lambda %in% c("1se","min")
+    if(is.null(lambda)) lambda <- moseg.G[[1]]$lambda #| lambda %in% c("1se","min")
     else lambda <- lambda[1]
     for (k in 1:q) {
 
@@ -400,23 +396,9 @@ mosumsr.multiscale.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("
     }
     if(do.plot) par(mfrow = c(1,1))
   }
-  # if(do.plot){
-  #   par(mfrow = c(2*Glen,1))
-  #   for (ii in 1:Glen) {
-  #     mosumsr.G[[ii]]$plots
-  #     # plot.ts(mosumsr.G[[ii]]$detectors$mosum[,], ylab="Detector") # plot series
-  #     # abline(h = mosumsr.G[[ii]]$threshold, col = "blue") #add threshold
-  #     # if(Reject) {
-  #     #   abline(v = mosumsr.G[[ii]]$cps, col = "red")  #add estimated cps
-  #     #   if(ii == Glen) abline(v = refined_cps, col = "purple")
-  #     # }
-  #   }
-  #   par(mfrow = c(1,1))
-  #   pl <- recordPlot()
-  # } else pl <- NULL
 
-  out <- list(anchors= anchors, refined_cps = refined_cps,  mosumsr.G =mosumsr.G)
-  attr(out, "class") <- "mosumsr.ms"
+
+  out <- list(anchors= anchors, refined_cps = refined_cps,  moseg.G =moseg.G)
+  attr(out, "class") <- "moseg.ms"
   return(out)
 }
-# try_ms_cv <- mosumsr.multiscale.cv(as.matrix(eqX), as.matrix(eqdata[,9]), Gset=c(120,240), ncores = 4, path.length = 10, max.cps = 4)

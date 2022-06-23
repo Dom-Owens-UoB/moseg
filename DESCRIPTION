@@ -1,4 +1,4 @@
-Package: mosumsr
+Package: moseg
 Type: Package
 Title: Data segmentation for sparse regression models
 Version: 0.1.0

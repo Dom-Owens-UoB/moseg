@@ -4,10 +4,10 @@
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param Gset integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)} 
+#' @param Gset integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)}
 #' @param lambda  regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})
 #' @param family response type, one of \code{"gaussian","binomial","poisson"}
-#' @param threshold numeric test rejection threshold; see  \link[mosumsr]{mosumsr} for default choice
+#' @param threshold numeric test rejection threshold; see  \link[moseg]{moseg} for default choice
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
 #' @param do.plot Boolean - return plots
@@ -19,15 +19,15 @@
 #' \itemize{
 #'   \item{\code{cps}}{ integer vector of estimated change points}
 #'   \item{\code{plot}}{ multiscale plot}
-#'   \item{\code{mosumsr.G}}{ list of `mosumsr` objects corresponding to `Gset` in ascending order}
+#'   \item{\code{moseg.G}}{ list of `moseg` objects corresponding to `Gset` in ascending order}
 #' }
 #' @export
 #'
-#' @seealso  \link[mosumsr]{mosumsr.multiscale.cv}
+#' @seealso  \link[moseg]{moseg.ms.cv}
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
-#' eq_mosum <- mosumsr.multiscale(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
-mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"),
+#' eq_mosum <- moseg.ms(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
+moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"),
                                threshold = NULL, grid.resolution = NULL, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
                                ncores = NULL, ...){
   n <- dim(X)[1]
@@ -40,7 +40,7 @@ mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("
   if(is.null(Gset)) {
     G <- 30 + p/100
     Gset <- c(G, 2*G, 3*G)
-  }  
+  }
   ## validate inputs
   if ( !( all(Gset > 0) )) stop("All entries of Gset must be positive")
   if ( !( all(Gset <= n/2) )) stop("All entries of Gset must be at most n/2")
@@ -53,26 +53,26 @@ mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("
   Gset <- sort(Gset) #into ascending order
   Glen <- length(Gset)
   anchors <-  c()
-  mosumsr.G <- as.list(1:Glen)
+  moseg.G <- as.list(1:Glen)
   Reject <- 0
   for (ii in 1:Glen){
-    mosumsr.G[[ii]] <-  mosumsr(X, y, G= Gset[ii], lambda =  lambda, family = family, threshold =  threshold,
+    moseg.G[[ii]] <-  moseg(X, y, G= Gset[ii], lambda =  lambda, family = family, threshold =  threshold,
                                 grid.resolution = grid.resolution, nu = nu,
                                 do.refinement = F, do.plot =F, ncores = ncores, ...)
-    if(length(mosumsr.G[[ii]]$cps)>0) Reject <- 1
+    if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
   }
   refined_cps <- NULL
   if(Reject){
     interval <- matrix(0, n, n) #matrix(0, Glen, n) #detection set
     # anchor sets
-    anchors <- mosumsr.G[[1]]$cps
+    anchors <- moseg.G[[1]]$cps
     if(!is.null(anchors)){
       for (ii in 1:length(anchors)) interval[ii,(anchors[ii]-Gset[1]+1):(anchors[ii]+Gset[1])] <- 1
       Gout <- rep(Gset[1], length(anchors))
     }
     if(Glen > 1){
       for (ii in 2:Glen){
-        K <- mosumsr.G[[ii]]$cps
+        K <- moseg.G[[ii]]$cps
         if(length(K)>0){
           if(is.null(anchors)){
             anchors <- K
@@ -105,7 +105,7 @@ mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("
     # cluster sets
     if(Glen > 1){
       for (ii in 2:Glen){
-        K <- mosumsr.G[[ii]]$cps
+        K <- moseg.G[[ii]]$cps
         if(is.null(cps)) cps <- K
         else for (cp in K) {
           cond1 <- FALSE
@@ -124,7 +124,7 @@ mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("
     if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     refined_cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
-    if(is.null(lambda) | lambda %in% c("1se","min") ) lambda <- mosumsr.G[[1]]$lambda
+    if(is.null(lambda) | lambda %in% c("1se","min") ) lambda <- moseg.G[[1]]$lambda
     for (k in 1:q) {
 
       G_window <- #(anchors[k] - Gstar[k]):(anchors[k]-1)
@@ -152,18 +152,18 @@ mosumsr.multiscale <- function(X, y, Gset, lambda = c("min","1se"), family = c("
   if(do.plot){
     par(mfrow = c(Glen,1))
     for (ii in 1:Glen) {
-      plot.ts(mosumsr.G[[ii]]$mosum, ylab="Detector") # plot series
-      abline(h = mosumsr.G[[ii]]$threshold, col = "blue") #add threshold
+      plot.ts(moseg.G[[ii]]$mosum, ylab="Detector") # plot series
+      abline(h = moseg.G[[ii]]$threshold, col = "blue") #add threshold
       if(Reject) {
-        abline(v = mosumsr.G[[ii]]$cps, col = "red")  #add estimated cps
+        abline(v = moseg.G[[ii]]$cps, col = "red")  #add estimated cps
         if(ii == Glen) abline(v = refined_cps, col = "purple")
       }
     }
     par(mfrow = c(1,1))
     pl <- recordPlot()
   } else pl <- NULL
-  out <- list(anchors= anchors, refined_cps = refined_cps, plot=pl, mosumsr.G =mosumsr.G)
-  attr(out, "class") <- "mosumsr.ms"
+  out <- list(anchors= anchors, refined_cps = refined_cps, plot=pl, moseg.G =moseg.G)
+  attr(out, "class") <- "moseg.ms"
   return(out)
 }
 

@@ -1,4 +1,4 @@
-## mosumsr
+## moseg
 
 #' @title Create grid
 #' @keywords internal
@@ -26,7 +26,7 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param G integer bandwidth; defaults to \code{round(30 + ncol(X)/100)} 
+#' @param G integer bandwidth; defaults to \code{round(30 + ncol(X)/100)}
 #' @param lambda regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})
 #' @param threshold numeric test rejection threshold; see details for default
 #' @param n.cps chosen number of change points to return; if specified, overrides \code{threshold}
@@ -50,13 +50,13 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #'   \item{\code{family}}{ input}
 #' }
 #' @details The default threshold is chosen as a product of exponents of \code{lambda} and \code{G}.
-#'  For a more accurate, but slightly slower, procedure, see \link[mosumsr]{mosumsr.cv}.
+#'  For a more accurate, but slightly slower, procedure, see \link[moseg]{moseg.cv}.
 #' @export
 #'
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
-#' eq_mosum <- mosumsr(as.matrix(eqX), eqdata[,9], 120, grid.resolution = 1/10, ncores = 2)
-mosumsr <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"), threshold = NULL, n.cps = NULL,
+#' eq_mosum <- moseg(as.matrix(eqX), eqdata[,9], 120, grid.resolution = 1/10, ncores = 2)
+moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"), threshold = NULL, n.cps = NULL,
                     grid.resolution = 1/G, nu = 0.5, do.refinement = TRUE, do.plot = TRUE, do.scale = TRUE,
                     ncores = NULL, ...){
   n <- dim(X)[1]
@@ -178,7 +178,7 @@ mosumsr <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussia
   out <- list(mosum = mosum, cps = cps, refined_cps = refined_cps,
               threshold = threshold, lambda = lambda, model_list = model_list, #
               plots = pl, family = family)
-  attr(out, "class") <- "mosumsr"
+  attr(out, "class") <- "moseg"
   return(out)
 }
 
@@ -209,8 +209,8 @@ mosumsr <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussia
 #' @examples
 
 #' eqX <- eqdata[,-c(1,9)]
-#' eq_mosum <- mosumsr.fit(as.matrix(eqX), as.matrix(eqdata[,9]), c(500))
-mosumsr.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussian","binomial","poisson"),
+#' eq_mosum <- moseg.fit(as.matrix(eqX), as.matrix(eqdata[,9]), c(500))
+moseg.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussian","binomial","poisson"),
                         type = c("link","response", "coefficients", "nonzero", "class"), do.plot = TRUE, do.scale = TRUE, ...){
   cps <- sort(cps)
   family <- match.arg(family, c("gaussian","binomial","poisson"))
@@ -264,59 +264,6 @@ mosumsr.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussia
 #' @title logarithmic factorial of `n`
 #' @keywords internal
 log.factorial <- function(n)  sum(log(1:max(n,1) ))
-
-
-
-
-
-# mosumsr.IC <- function(X, y, G, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"),
-#                        path.length = 5, penalty = NULL, nu = 0.25, do.plot = TRUE,
-#                        ncores = NULL, ...){
-#   n <- nrow(X)
-#   family <- match.arg(family, c("gaussian","binomial","poisson"))
-#   if(is.null(lambda)){
-#     lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/n #/2
-#     lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .0001), length.out = path.length)), digits = 10)
-#   }
-#   path.length <- length(lambda)
-#   if(!is.null(max.cps)) out_IC <- matrix(Inf,path.length, max.cps+1)
-#   for (jj in 1:path.length) {
-#     ms <- mosumsr(X,y,G,lambda[jj],family,threshold = 0, nu = nu, do.plot = do.plot, ncores = ncores, ...)
-#     cps <- ms$refined_cps
-#     max.cps.jj <- min(max.cps, length(cps))
-#     if(jj==1 & is.null(max.cps)) {max.cps <- max.cps.jj; out_IC <- matrix(Inf,path.length, max.cps+1)}
-#     ranks <- rank(ms$mosum[cps])
-#     out_list <- list()
-#
-#     for (ii in 0:max.cps) {
-#       ii_cps <- cps[ranks<=ii]
-#       if(min(diff(ii_cps)) > 10  ){
-#         ii_fit <- mosumsr.fit(X, y, ii_cps, family = family, penalty = penalty, lambda = lambda[jj], ...)
-#         out_IC[jj,ii+1] <- ii_fit$IC
-#         ii_list <- list(lambda = lambda[jj], cps = ii_cps, threshold = ms$mosum[cps[ranks==ii]], fit = ii_fit)
-#         out_list[[ (jj-1)*path.length +  ii+1 ]] <- ii_list
-#         if (min(out_IC) == ii_fit$IC) min_list <- ii_list
-#       } else warning("Segment too short. Returning Inf")
-#
-#     }
-#   }
-#   if(do.plot) {
-#     min.point <- which(out_IC==min(out_IC), arr.ind=TRUE)
-#     matplot(0:max.cps, t(out_IC), type = 'b', col = 1+1:path.length, pch = 1+1:path.length,
-#             xlab = 'q', ylab = 'IC', main = 'IC for change point number estimation')
-#     abline(v = (0:max.cps)[min.point[2]])
-#     legend('topleft', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1)
-#
-#     # matplot(lambda, out_IC, type = 'b', col = 2:(max.cps + 2), pch = 2:(max.cps + 2),
-#     #         log = 'x', xlab = 'lambda (log scale)', ylab = 'IC', main = 'IC for change point number estimation')
-#     # abline(v = lambda[min.point[1]])
-#     # legend('topleft', legend = 0:max.cps, col = 2:(max.cps + 2), pch = 2:(max.cps + 2), lty = 1)
-#   }
-#   min_list$IC <- out_IC
-#   min_list$models <- out_list
-#   return(min_list)
-# }
-
 
 
 

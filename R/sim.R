@@ -21,8 +21,8 @@
 #' @export
 #'
 #' @examples
-#' mosumsr.sim(100, 50)
-mosumsr.sim <- function(n, p, sparsity = floor(sqrt(p)), q = 1, sigma.noise = 1, sigma.x = c("id","band","ar"), kappa = 1){
+#' moseg.sim(100, 50)
+moseg.sim <- function(n, p, sparsity = floor(sqrt(p)), q = 1, sigma.noise = 1, sigma.x = c("id","band","ar"), kappa = 1){
   sigma.x <- match.arg(sigma.x, c("id","band","ar"))
   if(sigma.x=="id"){
      Sigma.x <- diag(1,p)
