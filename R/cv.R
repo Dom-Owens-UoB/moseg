@@ -37,7 +37,7 @@
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
-moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"),
+moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
                        path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
                        ncores = NULL, ...){
   n <- dim(X)[1]
@@ -49,12 +49,13 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   }
   if(is.null(G)) G <- 30 + p/100
   family <- match.arg(family, c("gaussian","binomial","poisson"))
+  loss <- match.arg(loss, c("1","2")) 
   if(is.null(lambda)){
-    lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/n #/2
-    lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .0001), length.out = path.length)), digits = 10)
+    lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/G
+    lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .001), length.out = path.length)), digits = 10)
   }
   path.length <- length(lambda)
-  max.cps <- min(max.cps, floor(n/G))
+  max.cps <- min(max.cps, floor(n/(nu*G)))
   out_cv <- matrix(Inf,path.length, max.cps+1)
   ranks <- refined_cps <- cps <- out_list <- list()
 
@@ -76,7 +77,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
     }
     ranks[[ll]] <- rank(-ms$mosum[cps[[ll]],ll])
 
-    out_list[[ll]] <- fit.cv(X,y,refined_cps[[ll]],ranks[[ll]],max.cps, lambda[ll])
+    out_list[[ll]] <- fit.cv(X,y,refined_cps[[ll]],ranks[[ll]],max.cps, lambda[ll], family = family, loss = loss, folds = folds)
 
     out_cv[ll,1:length(out_list[[ll]]$error)] <- out_list[[ll]]$error
   }
@@ -165,12 +166,21 @@ get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","
 
 #' @title fit models with cross-validation
 #' @keywords internal
-fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","binomial","poisson"), do.plot = TRUE, do.scale = TRUE, ...){
+fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
+                   do.plot = TRUE, do.scale = TRUE, ...){
+  loss <- match.arg(loss, c("1","2")) 
   min.len <- 3
-  cps <- sort((cps)) #unique
+  rankmat <- cbind(cps, ranks)
+  rankmat2 <- rankmat[1,, drop = FALSE]
+  if(nrow(rankmat) > 1) for (ii in 1:(nrow(rankmat)-1)) {
+    if(rankmat[ii+1,1] - rankmat[ii,1] > min.len) rankmat2 <- rbind(rankmat2, rankmat[ii+1,])
+  }
+  cps <- rankmat2[,1] #sort((cps)) #unique
+  ranks <- rank(rankmat2[,2])
   q <- min(length(cps),max.cps)
-  cps <- cps[ranks <= q]
-  ranks <- ranks[ranks <= q]
+  # cps <- cps[ranks <= q]
+  # cps <- sort((cps))
+  # ranks <- ranks[ranks <= q]
   family <- match.arg(family, c("gaussian","binomial","poisson"))
   #type <- match.arg(type, c("link","response", "coefficients", "nonzero", "class"))
   n <- nrow(X)
@@ -185,7 +195,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
   starts <- c(0, cps); ends <- c(cps, n)
   cps2 <- floor(cps/2)
   starts2 <- c(0, cps2); ends2 <- c(cps2, floor(n/2) )
-
+  
   out <- list()
   preds <- matrix(0, n, q+1)
   coeffs <- matrix(0, p+1,n)
@@ -197,35 +207,47 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 
   evens <- which(as.logical(1:n %%2) )
   odds <- which(!(1:n %% 2) )
-  X.odd <- X[odds,]; y.odd <- y[odds]; y.even <- y[evens]
+  X.odd <- X[odds,]; y.odd <- y[odds]; X.even <- X[evens,]; y.even <- y[evens]
 
-  ii <- q+1
-  ii_cps <- cps2[ranks<ii]
-  out[[ii]] <- list()
-  if(min(ends2 - starts2) > min.len  ){
-    for (jj in 1:length(ii_cps)) {
-
-      out[[ii]][[jj]] <- glmnet(X.odd[(starts2[jj]+1):ends2[jj],], y.odd[(starts2[jj]+1):ends2[jj]],nfolds = 10,family=family,...)
-      preds[(starts[jj]+1):ends[jj],ii] <- predict(out[[ii]][[jj]], X[(starts[jj]+1):ends[jj],], lambda )
-    }
-  } else warning("Segment too short. Returning Inf")
-  for (ii in q:1 ) {
+  
+  for (fold in 1:folds) { 
+    ii <- q+1
     ii_cps <- cps2[ranks<ii]
-    out[[ii]] <- out[[ii+1]]
-    preds[,ii] <- preds[,ii+1]
-    if( min(ends2 - starts2) > min.len ){
-      added_cp <- ranks[ii]#which.max(ranks) #which( !(cps2[ranks<ii+1] %in%  ii_cps)) #cps2[ranks==ii+1]
-      out[[ii]][[added_cp]] <- out[[ii]][[added_cp+1]] <- #remove one cp
-        glmnet(X.odd[(starts2[added_cp]+1):ends2[added_cp+1],], y.odd[(starts2[added_cp]+1):ends2[added_cp+1]],nfolds = 10,family=family,...)
-      preds[(starts[added_cp]+1):ends[added_cp+1],ii] <- predict(out[[ii]][[added_cp]], X[(starts[added_cp]+1):ends[added_cp+1],], lambda )
+    out[[ii]] <- list()
+    if(fold == 1) {
+      X.train <- X.odd; y.train <- y.odd; y.test <- y.even;  test <- evens 
+    }
+    if (fold == 2){
+      X.train <- X.even; y.train <- y.even; y.test <- y.odd;  test <- odds 
+    }
+    
+    if(min(ends2 - starts2) > min.len  ){
+      for (jj in 1:length(ii_cps)) {
+        out[[ii]][[jj]] <- glmnet(X.train[(starts2[jj]+1):ends2[jj],], y.train[(starts2[jj]+1):ends2[jj]],nfolds = 10,family=family,...)
+        preds[(starts[jj]+1):ends[jj],ii] <- predict(out[[ii]][[jj]], X[(starts[jj]+1):ends[jj],], lambda )
+      }
     } else warning("Segment too short. Returning Inf")
-
+    for (ii in q:1 ) {
+      ii_cps <- cps2[ranks<ii]
+      out[[ii]] <- out[[ii+1]]
+      preds[,ii] <- preds[,ii+1]
+      if( min(ends2 - starts2) > min.len ){
+        added_cp <- ranks[ii]#which.max(ranks) #which( !(cps2[ranks<ii+1] %in%  ii_cps)) #cps2[ranks==ii+1]
+        out[[ii]][[added_cp]] <- out[[ii]][[added_cp+1]] <- #remove one cp
+          glmnet(X.train[(starts2[added_cp]+1):ends2[added_cp+1],], y.train[(starts2[added_cp]+1):ends2[added_cp+1]],nfolds = 10,family=family,...)
+        preds[(starts[added_cp]+1):ends[added_cp+1],ii] <- predict(out[[ii]][[added_cp]], X[(starts[added_cp]+1):ends[added_cp+1],], lambda )
+      } else warning("Segment too short. Returning Inf")
+  
+    }
+    if(loss == "1") for (ii in (q+1):1 ) {
+      error[ii] <- error[ii] + sum(abs(y.test - preds[test,ii])) ##
+    }
+    
+    if(loss == "2") for (ii in (q+1):1 ) {
+      error[ii] <- error[ii] + sum(likelihood(y.test, preds[test,ii], family)) ##
+    }
   }
-  for (ii in (q+1):1 ) {
-    error[ii] <- sum(likelihood(y.even, preds[evens,ii], family))
-  }
-
-  out_list <- list(model = out, error = error, preds = preds, coeffs = t(coeffs))
+  out_list <- list(error=error) #list(model = out, error = error, preds = preds, coeffs = t(coeffs))
   return(out_list)
 }
 
@@ -268,7 +290,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
-moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"),
+moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
                                   threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
                                   ncores = NULL, ...){
   n <- dim(X)[1]
@@ -286,18 +308,18 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   if ( !( all(Gset > 0) )) stop("All entries of Gset must be positive")
   if ( !( all(Gset <= n/2) )) stop("All entries of Gset must be at most n/2")
   # if(is.character(lambda))  lambda <-  match.arg(lambda, c("min","1se"))
-  family <-  match.arg(family, c("gaussian","binomial","poisson"))
-  if ( !(family %in% c("gaussian","binomial","poisson"))) stop("family must be \"gaussian\", \"binomial\", or \"poisson\" ")
+  family <-  match.arg(family, c("gaussian","binomial","poisson")) 
   # if ( !(threshold.constant >= 0)) stop("threshold.constant must be at least 0")
   if ( !(nu > 0)) stop("nu must be positive")
   # if ( !(threshold.log.constant >= 0)) stop("threshold.log.constant must be at least 0")
+  loss <- match.arg(loss, c("1","2")) 
   Gset <- sort(Gset) #into ascending order
   Glen <- length(Gset)
   anchors <-  c()
   moseg.G <- as.list(1:Glen)
   Reject <- 0
   for (ii in 1:Glen){
-    moseg.G[[ii]] <-  moseg.cv(X, y, G= Gset[ii], lambda =  lambda, family = family,
+    moseg.G[[ii]] <-  moseg.cv(X, y, G= Gset[ii], lambda =  lambda, family = family, loss = loss, folds = folds,
                                    grid.resolution = grid.resolution[ii], nu = nu,
                                    do.refinement = FALSE, do.plot = do.plot, ncores = ncores, ...)
     if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
