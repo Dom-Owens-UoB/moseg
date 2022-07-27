@@ -4,7 +4,7 @@
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param Gset integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)}
+#' @param Gset integer vector of bandwidths; default is chosen based on dimensions of \code{X}
 #' @param lambda  regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})
 #' @param family response type, one of \code{"gaussian","binomial","poisson"}
 #' @param threshold numeric test rejection threshold; see  \link[moseg]{moseg} for default choice

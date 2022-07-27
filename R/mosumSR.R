@@ -35,7 +35,7 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param G integer bandwidth; defaults to \code{round(30 + ncol(X)/100)}
+#' @param G integer bandwidth; default is chosen based on dimensions of \code{X}
 #' @param lambda regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})
 #' @param threshold numeric test rejection threshold; see details for default
 #' @param n.cps chosen number of change points to return; if specified, overrides \code{threshold}

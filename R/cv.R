@@ -6,10 +6,12 @@
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param G integer bandwidth; defaults to \code{round(30 + ncol(X)/100)}
+#' @param G integer bandwidth; default is chosen based on dimensions of \code{X}
 #' @param lambda vector of numeric regularisation parameters
 #' @param max.cps maximum number of change points to consider
 #' @param family response type, one of \code{"gaussian","binomial","poisson"}
+#' @param loss l-norm for CV loss function, one of \code{"1", "2"}
+#' @param folds number of folds for CV
 #' @param path.length number of \code{lambda} values to consider
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
@@ -271,9 +273,11 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #'
 #' @param X design matrix
 #' @param y response vector
-#' @param Gset integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)}
+#' @param Gset integer vector of bandwidths; default is chosen based on dimensions of \code{X}
 #' @param lambda  regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})
 #' @param family response type, one of \code{"gaussian","binomial","poisson"}
+#' @param loss l-norm for CV loss function, one of \code{"1", "2"}
+#' @param folds number of folds for CV
 #' @param threshold numeric test rejection threshold; see reference for default choice
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
