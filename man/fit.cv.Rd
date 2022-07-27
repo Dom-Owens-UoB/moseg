@@ -12,6 +12,8 @@ fit.cv(
   max.cps,
   lambda,
   family = c("gaussian", "binomial", "poisson"),
+  loss = c("1", "2"),
+  folds = 2,
   do.plot = TRUE,
   do.scale = TRUE,
   ...

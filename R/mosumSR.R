@@ -1,10 +1,19 @@
 ## moseg
 
+#' @title default bandwidth
+#' @keywords internal
+getG <- function(p, n, c = 3.2){
+  c1 <-  -0.4491383; c2 <- 1.6654037
+  err <- c / (log(n))
+  out <- exp( -(c2*log(sqrt(log(p))) - log(err) ) / c1 )
+  round(out)
+}
+
 #' @title Create grid
 #' @keywords internal
 indexLE <- function(n, G, kap=1){ #define grid
   a <- 1:n
-  R <- floor(kap*G)
+  R <- max(1, floor(kap*G))
   b <- a[union(seq.int(1, n-G+1, R),n-G+1)]
   return(b)
 }
@@ -66,7 +75,7 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
     X <- scale(X)
     y <- scale(y)
   }
-  if(is.null(G)) G <- 30 + p/100
+  if(is.null(G)) G <- getG(p, n)
   G <- round(G)
   ## validate inputs
   if ( !(G > 0)) stop("G must be positive")
@@ -118,7 +127,7 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
   ## Locate
   cps <- c()
   if(!is.null(n.cps)) threshold <- 0 else
-  if(is.null(threshold)) threshold <- prod(c(G,lambda) ^c(0.2382334,-0.6929399 ) ) #
+  if(is.null(threshold)) threshold <- max(mosum[c(G+1,n-G+1)]) *prod(c(G,lambda) ^c(0.5436,0.1113 ) )  #prod(c(G,lambda) ^c(0.2382334,-0.6929399 ) ) #
   cps <- get_local_maxima(mosum, threshold, G, nu= max(nu, grid.resolution/G) )
 
   if( is.null(cps) ){
@@ -254,7 +263,7 @@ moseg.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussian"
   if(do.plot){
     image(t(coeffs), axes=F);
     axis(1, at = (1:n -1) / (n-1), labels = 1:n)#;
-    axis(2, at = (0:p ) / p, labels = rownames(coeffs) )
+    axis(2, at = (0:p ) / p, labels = rownames(coeffs), las = 2, cex.axis = .5 )
     title(xlab="Time")
     pl <- recordPlot()
   } else pl <- c()

@@ -26,7 +26,7 @@ moseg(
 
 \item{y}{response vector}
 
-\item{G}{integer bandwidth; defaults to \code{round(30 + ncol(X)/100)}}
+\item{G}{integer bandwidth; default is chosen based on dimensions of \code{X}}
 
 \item{lambda}{regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})}
 

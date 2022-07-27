@@ -11,6 +11,8 @@ moseg.ms.cv(
   Gset = NULL,
   lambda = NULL,
   family = c("gaussian", "binomial", "poisson"),
+  loss = c("1", "2"),
+  folds = 1,
   threshold = NULL,
   grid.resolution = 1/Gset,
   nu = 0.5,
@@ -25,11 +27,15 @@ moseg.ms.cv(
 
 \item{y}{response vector}
 
-\item{Gset}{integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)}}
+\item{Gset}{integer vector of bandwidths; default is chosen based on dimensions of \code{X}}
 
 \item{lambda}{regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})}
 
 \item{family}{response type, one of \code{"gaussian","binomial","poisson"}}
+
+\item{loss}{l-norm for CV loss function, one of \code{"1", "2"}}
+
+\item{folds}{number of folds for CV}
 
 \item{threshold}{numeric test rejection threshold; see reference for default choice}
 

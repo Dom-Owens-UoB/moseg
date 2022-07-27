@@ -24,7 +24,7 @@ moseg.ms(
 
 \item{y}{response vector}
 
-\item{Gset}{integer vector of bandwidths; default smallest is \code{round(30 + ncol(X)/100)}}
+\item{Gset}{integer vector of bandwidths; default is chosen based on dimensions of \code{X}}
 
 \item{lambda}{regularisation parameter; either a numeric, or one of \code{"min","1se"} (see \link[glmnet]{cv.glmnet})}
 

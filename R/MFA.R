@@ -38,8 +38,8 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     y <- scale(y)
   }
   if(is.null(Gset)) {
-    G <- 30 + p/100
-    Gset <- c(G, 2*G, 3*G)
+    G <- getG(p, n)
+    Gset <- c(G, 4/3*G, 5/3*G)
   }
   ## validate inputs
   if ( !( all(Gset > 0) )) stop("All entries of Gset must be positive")

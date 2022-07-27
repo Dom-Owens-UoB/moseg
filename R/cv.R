@@ -37,7 +37,7 @@
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
-moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
+moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 2,
                        path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
                        ncores = NULL, ...){
   n <- dim(X)[1]
@@ -47,9 +47,9 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
     X <- scale(X)
     y <- scale(y)
   }
-  if(is.null(G)) G <- 30 + p/100
+  if(is.null(G)) G <- getG(p, n)
   family <- match.arg(family, c("gaussian","binomial","poisson"))
-  loss <- match.arg(loss, c("1","2")) 
+  loss <- match.arg(loss, c("1","2"))
   if(is.null(lambda)){
     lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/G
     lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .001), length.out = path.length)), digits = 10)
@@ -98,7 +98,8 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
     matplot(0:max.cps, t(out_cv), type = 'b', col = 1+1:path.length, pch = 1+1:path.length,
             xlab = 'q', ylab = 'CV', main = 'CV for change point number estimation', log = "y")
     abline(v = out_q)
-    legend('topleft', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1, cex = .6)
+    options(scipen = 2)
+    legend('bottomright', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1, cex = .6)
 
     if(grid.resolution == 1/G) plot.ts(ms$mosum[,min.point[1]], ylab="Detector", xlab = "Time") # plot test statistic
     else plot(which(ms$mosum[,min.point[1]]>0), ms$mosum[which(ms$mosum>0),min.point[1]], ylab="Detector",
@@ -166,9 +167,9 @@ get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","
 
 #' @title fit models with cross-validation
 #' @keywords internal
-fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
+fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 2,
                    do.plot = TRUE, do.scale = TRUE, ...){
-  loss <- match.arg(loss, c("1","2")) 
+  loss <- match.arg(loss, c("1","2"))
   min.len <- 3
   rankmat <- cbind(cps, ranks)
   rankmat2 <- rankmat[1,, drop = FALSE]
@@ -193,9 +194,9 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 
   # if(is.character(lambda))  lambda <-  match.arg(lambda, c("min","1se"))
   starts <- c(0, cps); ends <- c(cps, n)
-  cps2 <- floor(cps/2)
-  starts2 <- c(0, cps2); ends2 <- c(cps2, floor(n/2) )
-  
+  cps2 <- floor(cps/max(2,folds) )
+  starts2 <- c(0, cps2); ends2 <- c(cps2, floor(n/max(2,folds)) )
+
   out <- list()
   preds <- matrix(0, n, q+1)
   coeffs <- matrix(0, p+1,n)
@@ -205,22 +206,24 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
   }
   error <- rep(0, q+1)
 
-  evens <- which(as.logical(1:n %%2) )
-  odds <- which(!(1:n %% 2) )
-  X.odd <- X[odds,]; y.odd <- y[odds]; X.even <- X[evens,]; y.even <- y[evens]
 
-  
-  for (fold in 1:folds) { 
+
+
+  for (fold in 1:folds) {
+    test <- which(as.logical( (1:n + fold - 1) %% max(2,folds) == 0) )
+    train <- which(!1:n  %in% test)#which(!(1:n %% 2) )
+    X.test <- X[test,]; y.test <- y[test]; X.train <- X[train,]; y.train <- y[train]
+
     ii <- q+1
     ii_cps <- cps2[ranks<ii]
     out[[ii]] <- list()
-    if(fold == 1) {
-      X.train <- X.odd; y.train <- y.odd; y.test <- y.even;  test <- evens 
-    }
-    if (fold == 2){
-      X.train <- X.even; y.train <- y.even; y.test <- y.odd;  test <- odds 
-    }
-    
+    # if(fold == 1) {
+    #   X.train <- X.odd; y.train <- y.odd; y.test <- y.even;  test <- evens
+    # }
+    # if (fold == 2){
+    #   X.train <- X.even; y.train <- y.even; y.test <- y.odd;  test <- odds
+    # }
+
     if(min(ends2 - starts2) > min.len  ){
       for (jj in 1:length(ii_cps)) {
         out[[ii]][[jj]] <- glmnet(X.train[(starts2[jj]+1):ends2[jj],], y.train[(starts2[jj]+1):ends2[jj]],nfolds = 10,family=family,...)
@@ -237,12 +240,12 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
           glmnet(X.train[(starts2[added_cp]+1):ends2[added_cp+1],], y.train[(starts2[added_cp]+1):ends2[added_cp+1]],nfolds = 10,family=family,...)
         preds[(starts[added_cp]+1):ends[added_cp+1],ii] <- predict(out[[ii]][[added_cp]], X[(starts[added_cp]+1):ends[added_cp+1],], lambda )
       } else warning("Segment too short. Returning Inf")
-  
+
     }
     if(loss == "1") for (ii in (q+1):1 ) {
       error[ii] <- error[ii] + sum(abs(y.test - preds[test,ii])) ##
     }
-    
+
     if(loss == "2") for (ii in (q+1):1 ) {
       error[ii] <- error[ii] + sum(likelihood(y.test, preds[test,ii], family)) ##
     }
@@ -301,18 +304,18 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
     y <- scale(y)
   }
   if(is.null(Gset)) {
-    G <- 30 + p/100
-    Gset <- c(G, 2*G, 3*G)
+    G <- getG(p, n)
+    Gset <- c(G, 4/3*G, 5/3*G)
   }
   ## validate inputs
   if ( !( all(Gset > 0) )) stop("All entries of Gset must be positive")
   if ( !( all(Gset <= n/2) )) stop("All entries of Gset must be at most n/2")
   # if(is.character(lambda))  lambda <-  match.arg(lambda, c("min","1se"))
-  family <-  match.arg(family, c("gaussian","binomial","poisson")) 
+  family <-  match.arg(family, c("gaussian","binomial","poisson"))
   # if ( !(threshold.constant >= 0)) stop("threshold.constant must be at least 0")
   if ( !(nu > 0)) stop("nu must be positive")
   # if ( !(threshold.log.constant >= 0)) stop("threshold.log.constant must be at least 0")
-  loss <- match.arg(loss, c("1","2")) 
+  loss <- match.arg(loss, c("1","2"))
   Gset <- sort(Gset) #into ascending order
   Glen <- length(Gset)
   anchors <-  c()

@@ -12,6 +12,8 @@ moseg.cv(
   lambda = NULL,
   max.cps = NULL,
   family = c("gaussian", "binomial", "poisson"),
+  loss = c("1", "2"),
+  folds = 2,
   path.length = 5,
   grid.resolution = 1/G,
   nu = 0.5,
@@ -27,13 +29,17 @@ moseg.cv(
 
 \item{y}{response vector}
 
-\item{G}{integer bandwidth; defaults to \code{round(30 + ncol(X)/100)}}
+\item{G}{integer bandwidth; default is chosen based on dimensions of \code{X}}
 
 \item{lambda}{vector of numeric regularisation parameters}
 
 \item{max.cps}{maximum number of change points to consider}
 
 \item{family}{response type, one of \code{"gaussian","binomial","poisson"}}
+
+\item{loss}{l-norm for CV loss function, one of \code{"1", "2"}}
+
+\item{folds}{number of folds for CV}
 
 \item{path.length}{number of \code{lambda} values to consider}
 
