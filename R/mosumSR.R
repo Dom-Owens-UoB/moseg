@@ -2,10 +2,9 @@
 
 #' @title default bandwidth
 #' @keywords internal
-getG <- function(p, n, c = 3.2){
-  c1 <-  -0.4491383; c2 <- 1.6654037
-  err <- c / (log(n))
-  out <- exp( -(c2*log(sqrt(log(p))) - log(err) ) / c1 )
+getG <- function(p, n){
+  coeffs <- c(-0.01538316,0.02009430,0.02669467)
+  out <- exp(err/coeffs[1] - (coeffs[2]/coeffs[1]) * log(log(p))   - (coeffs[3]/coeffs[1]) * log(log(n)) )
   round(out)
 }
 
