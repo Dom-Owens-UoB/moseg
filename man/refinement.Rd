@@ -12,6 +12,8 @@ refinement(
   lambda,
   l_mod,
   r_mod,
+  L_min = NULL,
+  U_max = NULL,
   family = c("gaussian", "binomial", "poisson")
 )
 }

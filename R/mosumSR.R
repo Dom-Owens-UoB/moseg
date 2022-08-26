@@ -3,6 +3,7 @@
 #' @title default bandwidth
 #' @keywords internal
 getG <- function(p, n){
+  err <- .012
   coeffs <- c(-0.01538316,0.02009430,0.02669467)
   out <- exp(err/coeffs[1] - (coeffs[2]/coeffs[1]) * log(log(p))   - (coeffs[3]/coeffs[1]) * log(log(n)) )
   round(out)
@@ -136,6 +137,7 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
     ## Step 2
     q <- length(cps)
     refined_cps <- cps
+    limits <- c(0, cps[-q] + floor(diff(cps)/2), n)
     if(do.plot) par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     if(do.refinement) for (k in 1:q) {
       L_ind <- max(1,cps[k]-G- floor(G/2))
@@ -149,12 +151,14 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
         model_list[[R_ind]] <- glmnet(X[G_window,], y[G_window], family = family, ...)
       }
 
-      rf <- refinement(X, y, cps[k], G, lambda, model_list[[L_ind]],  model_list[[R_ind ]], family=family)
+      rf <- refinement(X, y, cps[k], G, lambda, model_list[[L_ind]],  model_list[[R_ind ]],
+                       L_min = limits[k], U_max = limits[k+1],
+                       family=family)
       refined_cps[k] <- rf$cp
 
       if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
-        axis(1, at=1:(2*G), labels= (cps[k]-G+1):(cps[k]+G))
+        axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U )
         abline(v = which.min(rf$objective), col = "purple")
       }
 

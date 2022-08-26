@@ -18,12 +18,15 @@
 #' }
 #' @keywords internal
 #'
-refinement <- function(X, y, k, G, lambda, l_mod, r_mod, family = c("gaussian","binomial","poisson")){
+refinement <- function(X, y, k, G, lambda, l_mod, r_mod, L_min = NULL, U_max = NULL,
+                       family = c("gaussian","binomial","poisson")){
   family <-  match.arg(family, c("gaussian","binomial","poisson"))
 
   n <- nrow(X)
   L <- max(1,k-G+1)
+  if(!is.null(L_min)) L <- max(L_min, L)
   U <- min(n,k+G)
+  if(!is.null(U_max)) U <- min(U_max, U)
   yy <- y[L:U]
   XX <- X[L:U,]
   objective <- rep(0, U-L)
@@ -37,7 +40,7 @@ refinement <- function(X, y, k, G, lambda, l_mod, r_mod, family = c("gaussian","
     objective[t] <- (sum(l_res[1:t])) + (sum(r_res[(t+1):(U-L+1)])) #norm(y[1:t] - l_pred[1:t], "2")  + norm(y[(t+1):n] - l_pred[(t+1):n] , "2")
   }
   cp <- L - 1 +  which.min(objective)
-  out <- list(cp = cp, objective = objective)
+  out <- list(cp = cp, objective = objective, L=L, U=U)
   return(out)
 }
 #' @title Evaluate gaussian likelihood

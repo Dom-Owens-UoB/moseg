@@ -4,7 +4,7 @@
 \alias{getG}
 \title{default bandwidth}
 \usage{
-getG(p, n, c = 3.2)
+getG(p, n)
 }
 \description{
 default bandwidth

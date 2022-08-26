@@ -2,7 +2,7 @@ Package: moseg
 Type: Package
 Title: Data segmentation for sparse regression models
 Version: 0.1.0
-Imports: glmnet, MASS, doParallel, foreach, parallel
+Imports: glmnet, MASS, doParallel, foreach, parallel, Matrix
 Authors@R: c( 
     person("Dom", "Owens", email = "dom.owens@bristol.ac.uk", role = c("cre", "aut")),
     person("Haeran", "Cho", email = "haeran.cho@bristol.ac.uk", role = "aut"))

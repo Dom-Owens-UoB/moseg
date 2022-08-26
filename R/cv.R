@@ -67,6 +67,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
     cps[[ll]] <- get_local_maxima(ms$mosum[,ll], 0, G, nu)
     q <- length(cps[[ll]])
     refined_cps[[ll]] <- cps[[ll]]
+    limits <- c(0, cps[[ll]][-q] + floor(diff(cps[[ll]])/2), n)
     if(do.refinement) for (k in 1:q) {
       L_ind <- max(1,cps[[ll]][k]-G- floor(G/2))
       G_window <- (L_ind):(L_ind+G-1)# (cps[[ll]][k]-1- floor(G/2))
@@ -74,7 +75,9 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
       R_ind <- min(n-G,cps[[ll]][k]+ floor(G/2))
       G_window <- (R_ind):(R_ind+G)
       R_mod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-      rf <- refinement(X, y, cps[[ll]][k], G, lambda[ll], L_mod,  R_mod, family=family)
+      rf <- refinement(X, y, cps[[ll]][k], G, lambda[ll], L_mod,  R_mod,
+                       L_min = limits[k], U_max = limits[k+1], 
+                       family=family)
       refined_cps[[ll]][k] <- rf$cp
     }
     ranks[[ll]] <- rank(-ms$mosum[cps[[ll]],ll])
@@ -374,8 +377,8 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
     }
     q <- length(anchors)
     rank.anchors <- rank(anchors)
-    anchors <- anchors[rank.anchors] #sort anchors
-    Gout_min <- Gout_max <- Gout[rank.anchors] #sort Gout by anchors
+    anchors <- anchors[invPerm(rank.anchors)] #sort anchors
+    Gout_min <- Gout_max <- Gout[invPerm(rank.anchors)] #sort Gout by anchors
     cps <- anchors
     # cluster sets
     if(Glen > 1){
@@ -397,28 +400,34 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
       }
     }
     if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
+    # anchors <- sort(anchors) #into ascending order
     refined_cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
     if(is.null(lambda)) lambda <- moseg.G[[1]]$lambda #| lambda %in% c("1se","min")
-    else lambda <- lambda[1]
+    else lambda <- lambda[1] 
+    limits <- c(0, anchors[-q] + floor(diff(anchors)/2), n)
     for (k in 1:q) {
-
+      
       G_window <- #(anchors[k] - Gstar[k]):(anchors[k]-1)
         (anchors[k]- floor(Gout_min[k]/2) - Gstar[k]):(anchors[k]- floor(Gout_min[k]/2))
-      if(any(G_window<1)) G_window <- 1: Gstar[k]
+      G_window <- G_window[G_window>0]
+      #if(any(G_window<1)) G_window <- 1: Gstar[k]
       lmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-
+      
       G_window <-  #(anchors[k]):(anchors[k]+Gstar[k]-1)
         (anchors[k]+ floor(Gout_min[k]/2)):(anchors[k]+ floor(Gout_min[k]/2)+Gstar[k]-1)
-      if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
+      # if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
+      G_window <- G_window[G_window<=n]
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
 
-      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, family=family)
+      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, 
+                       L_min = limits[k], U_max = limits[k+1], 
+                       family=family)
       refined_cps[k] <- rf$cp
 
       if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
-        axis(1, at=1:(2*Gstar[k]), labels= (anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k]))
+        axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U ) #(anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k])
         abline(v = which.min(rf$objective), col = "purple")
       }
 
@@ -431,3 +440,4 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   attr(out, "class") <- "moseg.ms"
   return(out)
 }
+

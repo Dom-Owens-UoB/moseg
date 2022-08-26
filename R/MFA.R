@@ -99,8 +99,8 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     }
     q <- length(anchors)
     rank.anchors <- rank(anchors)
-    anchors <- anchors[rank.anchors] #sort anchors
-    Gout_min <- Gout_max <- Gout[rank.anchors] #sort Gout by anchors
+    anchors <- anchors[invPerm(rank.anchors)] #sort anchors
+    Gout_min <- Gout_max <- Gout[invPerm(rank.anchors)] #sort Gout by anchors
     cps <- anchors
     # cluster sets
     if(Glen > 1){
@@ -125,30 +125,34 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     refined_cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
     if(is.null(lambda) | lambda %in% c("1se","min") ) lambda <- moseg.G[[1]]$lambda
+    limits <- c(0, anchors[-q] + floor(diff(anchors)/2), n)
     for (k in 1:q) {
-
+      
       G_window <- #(anchors[k] - Gstar[k]):(anchors[k]-1)
         (anchors[k]- floor(Gout_min[k]/2) - Gstar[k]):(anchors[k]- floor(Gout_min[k]/2))
-      if(any(G_window<1)) G_window <- 1: Gstar[k]
+      G_window <- G_window[G_window>0]
+      #if(any(G_window<1)) G_window <- 1: Gstar[k]
       lmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-
+      
       G_window <-  #(anchors[k]):(anchors[k]+Gstar[k]-1)
         (anchors[k]+ floor(Gout_min[k]/2)):(anchors[k]+ floor(Gout_min[k]/2)+Gstar[k]-1)
-      if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
+      # if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
+      G_window <- G_window[G_window<=n]
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-
-      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, family=family)
+      
+      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, 
+                       L_min = limits[k], U_max = limits[k+1], 
+                       family=family)
       refined_cps[k] <- rf$cp
-
+      
       if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
-        axis(1, at=1:(2*Gstar[k]), labels= (anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k]))
+        axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U ) #(anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k])
         abline(v = which.min(rf$objective), col = "purple")
-      }
-
     }
     if(do.plot) par(mfrow = c(1,1))
-  }
+    }
+    
   if(do.plot){
     par(mfrow = c(Glen,1))
     for (ii in 1:Glen) {
@@ -162,6 +166,7 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     par(mfrow = c(1,1))
     pl <- recordPlot()
   } else pl <- NULL
+  }
   out <- list(anchors= anchors, refined_cps = refined_cps, plot=pl, moseg.G =moseg.G)
   attr(out, "class") <- "moseg.ms"
   return(out)
