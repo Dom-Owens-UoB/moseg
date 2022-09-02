@@ -17,7 +17,7 @@ moseg.cv(
   path.length = 5,
   grid.resolution = 1/G,
   nu = 0.5,
-  do.plot = TRUE,
+  do.plot = c("cv", "mosum", "none"),
   do.scale = TRUE,
   do.refinement = TRUE,
   ncores = NULL,
@@ -47,7 +47,7 @@ moseg.cv(
 
 \item{nu}{numeric localisation tuning parameter}
 
-\item{do.plot}{Boolean - return plots}
+\item{do.plot}{which plots to return - one of \code{"cv","mosum","none"}}
 
 \item{do.scale}{Boolean - centre and scale \code{X,y}}
 

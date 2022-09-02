@@ -15,7 +15,7 @@
 #' @param path.length number of \code{lambda} values to consider
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
-#' @param do.plot Boolean - return plots
+#' @param do.plot which plots to return - one of \code{"cv","mosum","none"}
 #' @param do.scale Boolean - centre and scale \code{X,y}
 #' @param do.refinement Boolean - perform location refinement
 #' @param ncores number of parallel cores
@@ -40,7 +40,7 @@
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
 moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 2,
-                       path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
+                       path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = c("cv","mosum","none"), do.scale = TRUE, do.refinement = TRUE,
                        ncores = NULL, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
@@ -51,6 +51,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   }
   if(is.null(G)) G <- getG(p, n)
   family <- match.arg(family, c("gaussian","binomial","poisson"))
+  do.plot <- match.arg(do.plot, c("cv","mosum","none"))
   loss <- match.arg(loss, c("1","2"))
   if(is.null(lambda)){
     lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/G
@@ -76,7 +77,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
       G_window <- (R_ind):(R_ind+G)
       R_mod <- glmnet(X[G_window,], y[G_window], family = family, ...)
       rf <- refinement(X, y, cps[[ll]][k], G, lambda[ll], L_mod,  R_mod,
-                       L_min = limits[k], U_max = limits[k+1], 
+                       L_min = limits[k], U_max = limits[k+1],
                        family=family)
       refined_cps[[ll]][k] <- rf$cp
     }
@@ -98,14 +99,16 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
 
   pl <- list()
   thr <- Inf
-  if(do.plot) {
+  par(mfrow =c(1,1))
+  if(do.plot == "cv") {
     par(mfrow=c(2,1))
     matplot(0:max.cps, t(out_cv), type = 'b', col = 1+1:path.length, pch = 1+1:path.length,
             xlab = 'q', ylab = 'CV', main = 'CV for change point number estimation', log = "y")
     abline(v = out_q)
     options(scipen = 2)
-    legend('bottomright', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1, cex = .6)
-
+    legend('bottomright', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1, cex = .6, title = "lambda")
+  }
+  if(do.plot %in% c("cv","mosum") ){
     if(grid.resolution == 1/G) plot.ts(ms$mosum[,min.point[1]], ylab="Detector", xlab = "Time") # plot test statistic
     else plot(which(ms$mosum[,min.point[1]]>0), ms$mosum[which(ms$mosum>0),min.point[1]], ylab="Detector",
               xlab = "Time", ylim = c(0, max(ms$mosum[,min.point[1]])), xlim = c(1,n) )
@@ -284,7 +287,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' @param threshold numeric test rejection threshold; see reference for default choice
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
-#' @param do.plot Boolean - return plots
+#' @param do.plot which plots to return - one of \code{"cv","mosum","none"}
 #' @param do.scale Boolean - scale \code{X,y}
 #' @param ncores number of parallel cores
 #' @param ... optional arguments to \code{glmnet}
@@ -301,7 +304,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
 moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
-                                  threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
+                                  threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = c("cv","mosum","none"), do.scale = TRUE,
                                   ncores = NULL, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
@@ -319,6 +322,7 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   if ( !( all(Gset <= n/2) )) stop("All entries of Gset must be at most n/2")
   # if(is.character(lambda))  lambda <-  match.arg(lambda, c("min","1se"))
   family <-  match.arg(family, c("gaussian","binomial","poisson"))
+  do.plot <- match.arg(do.plot, c("cv","mosum","none"))
   # if ( !(threshold.constant >= 0)) stop("threshold.constant must be at least 0")
   if ( !(nu > 0)) stop("nu must be positive")
   # if ( !(threshold.log.constant >= 0)) stop("threshold.log.constant must be at least 0")
@@ -399,40 +403,40 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
         }
       }
     }
-    if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
+    if(do.plot!="none")  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     # anchors <- sort(anchors) #into ascending order
     refined_cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
     if(is.null(lambda)) lambda <- moseg.G[[1]]$lambda #| lambda %in% c("1se","min")
-    else lambda <- lambda[1] 
+    else lambda <- lambda[1]
     limits <- c(0, anchors[-q] + floor(diff(anchors)/2), n)
     for (k in 1:q) {
-      
+
       G_window <- #(anchors[k] - Gstar[k]):(anchors[k]-1)
         (anchors[k]- floor(Gout_min[k]/2) - Gstar[k]):(anchors[k]- floor(Gout_min[k]/2))
       G_window <- G_window[G_window>0]
       #if(any(G_window<1)) G_window <- 1: Gstar[k]
       lmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-      
+
       G_window <-  #(anchors[k]):(anchors[k]+Gstar[k]-1)
         (anchors[k]+ floor(Gout_min[k]/2)):(anchors[k]+ floor(Gout_min[k]/2)+Gstar[k]-1)
       # if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
       G_window <- G_window[G_window<=n]
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
 
-      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, 
-                       L_min = limits[k], U_max = limits[k+1], 
+      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod,
+                       L_min = limits[k], U_max = limits[k+1],
                        family=family)
       refined_cps[k] <- rf$cp
 
-      if(do.plot){
+      if(do.plot!="none"){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
         axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U ) #(anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k])
         abline(v = which.min(rf$objective), col = "purple")
       }
 
     }
-    if(do.plot) par(mfrow = c(1,1))
+    par(mfrow = c(1,1))
   }
 
 

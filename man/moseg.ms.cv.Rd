@@ -16,7 +16,7 @@ moseg.ms.cv(
   threshold = NULL,
   grid.resolution = 1/Gset,
   nu = 0.5,
-  do.plot = TRUE,
+  do.plot = c("cv", "mosum", "none"),
   do.scale = TRUE,
   ncores = NULL,
   ...
@@ -43,7 +43,7 @@ moseg.ms.cv(
 
 \item{nu}{numeric localisation tuning parameter}
 
-\item{do.plot}{Boolean - return plots}
+\item{do.plot}{which plots to return - one of \code{"cv","mosum","none"}}
 
 \item{do.scale}{Boolean - scale \code{X,y}}
 
