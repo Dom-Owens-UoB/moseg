@@ -51,12 +51,14 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #' \itemize{
 #'   \item{\code{mosum}}{ numeric vector of mosum detector}
 #'   \item{\code{cps}}{ integer vector of estimated change points}
-#'   \item{\code{refined_cps}}{ integer vector of refined change points}
-#'   \item{\code{threshold}}
-#'   \item{\code{lambda}}
-#'   \item{\code{model_list}}{ list of fitted \code{glmnet} models at each grid point}
-#'   \item{\code{plots}}{ list of detector and refinement plots}
+#'   \item{\code{refined.cps}}{ integer vector of refined change points}
+#'   \item{\code{G}}{ input}
+#'   \item{\code{lambda}}{ input}
+#'   \item{\code{threshold}}{ input}
+#'   \item{\code{grid.resolution}}{ input}
 #'   \item{\code{family}}{ input}
+#'   \item{\code{plots}}{ list of detector and refinement plots}
+#'   \item{\code{model_list}}{ list of fitted \code{glmnet} models at each grid point}
 #' }
 #' @details The default threshold is chosen as a product of exponents of \code{lambda} and \code{G}.
 #'  For a more accurate, but slightly slower, procedure, see \link[moseg]{moseg.cv}.
@@ -132,11 +134,11 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
 
   if( is.null(cps) ){
     q <- 0
-    refined_cps <- c()
+    refined.cps <- c()
   } else {
     ## Step 2
     q <- length(cps)
-    refined_cps <- cps
+    refined.cps <- cps
     limits <- c(0, cps[-q] + floor(diff(cps)/2), n)
     if(do.plot) par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     if(do.refinement) for (k in 1:q) {
@@ -154,7 +156,7 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
       rf <- refinement(X, y, cps[k], G, lambda, model_list[[L_ind]],  model_list[[R_ind ]],
                        L_min = limits[k], U_max = limits[k+1],
                        family=family)
-      refined_cps[k] <- rf$cp
+      refined.cps[k] <- rf$cp
 
       if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
@@ -164,35 +166,48 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
 
     }
     if(do.plot) {
-      pl$refinement <- recordPlot();
       par(mfrow = c(1,1))
+      pl$refinement <- recordPlot();
     }
   }
   if(!is.null(n.cps)){ # select change point number
     ms.rank <- rank(-mosum[cps])
     cps <- cps[ms.rank %in% 1:n.cps]
-    refined_cps <- refined_cps[ms.rank %in% 1:n.cps]
+    refined.cps <- refined.cps[ms.rank %in% 1:n.cps]
     q <- n.cps
   }
-  ## Plot
-  if(do.plot){
-    if(grid.resolution == 1/G) plot.ts(mosum, ylab="Detector", xlab = "Time") # plot test statistic
-    else plot(which(mosum>0), mosum[which(mosum>0)], ylab="Detector", xlab = "Time", ylim = c(0, max(mosum)), xlim = c(1,n) )
-    abline(h = threshold, col = "blue") #add threshold
-    if(q>0) { # add estimated cps
-      par(mfrow =c(1,1))
-      abline(v = cps, col = "red")
-      abline(v = refined_cps , col = "purple")
-    }
-    pl$mosum <- recordPlot()
-  }
   stopCluster(cl)
-  out <- list(mosum = mosum, cps = cps, refined_cps = refined_cps,
-              threshold = threshold, lambda = lambda, model_list = model_list, #
-              plots = pl, family = family)
+  out <- list(mosum = mosum, cps = cps, refined.cps = refined.cps,
+              G=G, lambda = lambda, threshold = threshold,
+              grid.resolution = grid.resolution, family = family,
+              plots = pl, model_list = model_list)
   attr(out, "class") <- "moseg"
+  if(do.plot) {
+    plot.moseg(out)
+    out$plots$mosum <- recordPlot()
+  }
   return(out)
 }
+
+
+#' @title Plot the moseg detector
+#' @method plot moseg
+#' @description Plotting method for S3 objects of class \code{moseg}.
+#' @param x \code{moseg} object
+#' @param ... unused
+#'
+#' @return A detector plot
+#' @export
+plot.moseg <- function(x, ...){
+  if(x$grid.resolution == 1/x$G) plot.ts(x$mosum, ylab="Detector", xlab = "Time") # plot test statistic
+  else plot(which(x$mosum>0), x$mosum[which(x$mosum>0)], ylab="Detector", xlab = "Time", ylim = c(0, max(x$mosum)), xlim = c(1,length(x$mosum)) )
+  abline(h = x$threshold, col = "blue") #add threshold
+  if(length(x$cps)>0) { # add estimated cps
+    abline(v = x$cps, col = "red")
+    abline(v = x$refined.cps , col = "purple")
+  }
+}
+
 
 
 

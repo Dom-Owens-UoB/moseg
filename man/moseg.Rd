@@ -55,12 +55,14 @@ List containing
 \itemize{
   \item{\code{mosum}}{ numeric vector of mosum detector}
   \item{\code{cps}}{ integer vector of estimated change points}
-  \item{\code{refined_cps}}{ integer vector of refined change points}
-  \item{\code{threshold}}
-  \item{\code{lambda}}
-  \item{\code{model_list}}{ list of fitted \code{glmnet} models at each grid point}
-  \item{\code{plots}}{ list of detector and refinement plots}
+  \item{\code{refined.cps}}{ integer vector of refined change points}
+  \item{\code{G}}{ input}
+  \item{\code{lambda}}{ input}
+  \item{\code{threshold}}{ input}
+  \item{\code{grid.resolution}}{ input}
   \item{\code{family}}{ input}
+  \item{\code{plots}}{ list of detector and refinement plots}
+  \item{\code{model_list}}{ list of fitted \code{glmnet} models at each grid point}
 }
 }
 \description{
