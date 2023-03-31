@@ -61,7 +61,7 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
                                 do.refinement = F, do.plot =F, ncores = ncores, ...)
     if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
   }
-  refined_cps <- NULL
+  refined.cps <- NULL
   if(Reject){
     interval <- matrix(0, n, n) #matrix(0, Glen, n) #detection set
     # anchor sets
@@ -122,29 +122,29 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
       }
     }
     if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
-    refined_cps <- anchors
+    refined.cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
     if(is.null(lambda) | lambda %in% c("1se","min") ) lambda <- moseg.G[[1]]$lambda
     limits <- c(0, anchors[-q] + floor(diff(anchors)/2), n)
     for (k in 1:q) {
-      
+
       G_window <- #(anchors[k] - Gstar[k]):(anchors[k]-1)
         (anchors[k]- floor(Gout_min[k]/2) - Gstar[k]):(anchors[k]- floor(Gout_min[k]/2))
       G_window <- G_window[G_window>0]
       #if(any(G_window<1)) G_window <- 1: Gstar[k]
       lmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-      
+
       G_window <-  #(anchors[k]):(anchors[k]+Gstar[k]-1)
         (anchors[k]+ floor(Gout_min[k]/2)):(anchors[k]+ floor(Gout_min[k]/2)+Gstar[k]-1)
       # if(any(G_window>n)) G_window <- (n-Gstar[k]+1):n
       G_window <- G_window[G_window<=n]
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
-      
-      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod, 
-                       L_min = limits[k], U_max = limits[k+1], 
+
+      rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod,
+                       L_min = limits[k], U_max = limits[k+1],
                        family=family)
-      refined_cps[k] <- rf$cp
-      
+      refined.cps[k] <- rf$cp
+
       if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
         axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U ) #(anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k])
@@ -152,7 +152,7 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     }
     if(do.plot) par(mfrow = c(1,1))
     }
-    
+
   if(do.plot){
     par(mfrow = c(Glen,1))
     for (ii in 1:Glen) {
@@ -160,15 +160,33 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
       abline(h = moseg.G[[ii]]$threshold, col = "blue") #add threshold
       if(Reject) {
         abline(v = moseg.G[[ii]]$cps, col = "red")  #add estimated cps
-        if(ii == Glen) abline(v = refined_cps, col = "purple")
+        if(ii == Glen) abline(v = refined.cps, col = "purple")
       }
     }
     par(mfrow = c(1,1))
     pl <- recordPlot()
   } else pl <- NULL
   }
-  out <- list(anchors= anchors, refined_cps = refined_cps, plot=pl, moseg.G =moseg.G)
+  out <- list(anchors= anchors, refined.cps = refined.cps, plot=pl, moseg.G =moseg.G)
   attr(out, "class") <- "moseg.ms"
   return(out)
 }
 
+
+#' @title Plot the multiscale moseg detector
+#' @method plot moseg.ms
+#' @description Plotting method for S3 objects of class \code{moseg.ms}.
+#' @param x \code{moseg.ms} object
+#' @param ... unused
+#'
+#' @return Detector plots
+#' @export
+plot.moseg.ms <- function(x, ...){
+  Glen <- length(x$moseg.G)
+  par(mfrow = c(Glen,1))
+  for (ii in 1:Glen) {
+    plot(x$moseg.G[[ii]])
+    if(ii == Glen) abline(v = x$refined.cps, col = "purple")
+  }
+  par(mfrow = c(1,1))
+}
