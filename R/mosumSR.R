@@ -62,6 +62,8 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #' }
 #' @details The default threshold is chosen as a product of exponents of \code{lambda} and \code{G}.
 #'  For a more accurate, but slightly slower, procedure, see \link[moseg]{moseg.cv}.
+#' @import glmnet
+#' @import doParallel
 #' @export
 #'
 #' @examples
@@ -231,6 +233,8 @@ plot.moseg <- function(x, ...){
 #'   \item{\code{coeffs}}{ coefficient matrix}
 #'   \item{\code{plot}}{ coefficient heatmap}
 #' }
+#' @import glmnet
+#' @import doParallel
 #' @export
 #'
 #' @examples
@@ -261,7 +265,7 @@ moseg.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussian"
   }
   if(is.character(lambda)){
     for (ii in 1:(q+1)) {
-      out[[ii]] <- glmnet::cv.glmnet(X[(starts[ii]+1):ends[ii],], y[(starts[ii]+1):ends[ii]],
+      out[[ii]] <- cv.glmnet(X[(starts[ii]+1):ends[ii],], y[(starts[ii]+1):ends[ii]],
                                      nfolds = 10,family=family, ... )
       if(lambda == "1se") lambdaii <- out[[ii]]$lambda.1se
       if(lambda == "min") lambdaii <- out[[ii]]$lambda.min
@@ -271,7 +275,7 @@ moseg.fit <- function(X, y, cps, lambda = c("min","1se"), family =  c("gaussian"
   }
   if(is.numeric(lambda) & length(lambda) == 1){
     for (ii in 1:(q+1)) {
-      out[[ii]] <- glmnet::glmnet(X[(starts[ii]+1):ends[ii],], y[(starts[ii]+1):ends[ii]],family=family, lambda = lambda, ... )
+      out[[ii]] <- glmnet(X[(starts[ii]+1):ends[ii],], y[(starts[ii]+1):ends[ii]],family=family, lambda = lambda, ... )
       preds <- c(preds, predict(out[[ii]], X[(starts[ii]+1):ends[ii],], lambda, type=type) )
       if(do.plot) coeffs[,(starts[ii]+1):ends[ii]] <- as.matrix(coef(out[[ii]], s=lambda))
     }

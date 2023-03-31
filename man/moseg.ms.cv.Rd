@@ -16,7 +16,7 @@ moseg.ms.cv(
   threshold = NULL,
   grid.resolution = 1/Gset,
   nu = 0.5,
-  do.plot = c("cv", "mosum", "none"),
+  do.plot = TRUE,
   do.scale = TRUE,
   ncores = NULL,
   ...
@@ -43,7 +43,7 @@ moseg.ms.cv(
 
 \item{nu}{numeric localisation tuning parameter}
 
-\item{do.plot}{which plots to return - one of \code{"cv","mosum","none"}}
+\item{do.plot}{Boolean - return plots}
 
 \item{do.scale}{Boolean - scale \code{X,y}}
 
@@ -52,11 +52,11 @@ moseg.ms.cv(
 \item{...}{optional arguments to \code{glmnet}}
 }
 \value{
-List containing
+\code{moseg.ms.cv} object containing
 \itemize{
   \item{\code{anchors}}{ integer vector of estimated change points}
-  \item{\code{refined_cps}}{ integer vector of refined change points}
-  \item{\code{moseg.G}}{ list of `moseg` objects corresponding to `Gset` in ascending order}
+  \item{\code{refined.cps}}{ integer vector of refined change points}
+  \item{\code{moseg.G}}{ list of `moseg.cv` objects corresponding to `Gset` in ascending order}
 }
 }
 \description{

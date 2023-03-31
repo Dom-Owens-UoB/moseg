@@ -15,16 +15,17 @@
 #' @param path.length number of \code{lambda} values to consider
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
-#' @param do.plot which plots to return - one of \code{"cv","mosum","none"}
+#' @param do.plot Boolean - return plots
 #' @param do.scale Boolean - centre and scale \code{X,y}
 #' @param do.refinement Boolean - perform location refinement
 #' @param ncores number of parallel cores
 #' @param ... optional arguments to \code{glmnet}
-#' @return List containing
+#' @return \code{moseg.cv} object containing
 #' \itemize{
 #'   \item{\code{mosum}}{ numeric vector of mosum detector}
 #'   \item{\code{cps}}{ integer vector of estimated change points}
-#'   \item{\code{refined_cps}}{ integer vector of refined change points}
+#'   \item{\code{refined.cps}}{ integer vector of refined change points}
+#'   \item{\code{G}}{ input}
 #'   \item{\code{lambda}}{ selected regularisation parameter}
 #'   \item{\code{threshold}}{ implied threshold}
 #'   \item{\code{detectors}}{ mosum detector series for each \code{lambda} value}
@@ -33,6 +34,8 @@
 #'   \item{\code{plots}}{ list of detector and refinement plots}
 #'   \item{\code{family}}{ input}
 #' }
+#' @import glmnet
+#' @import doParallel
 #' @importFrom graphics abline legend matplot
 #' @export
 #'
@@ -40,7 +43,7 @@
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
 moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 2,
-                       path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = c("cv","mosum","none"), do.scale = TRUE, do.refinement = TRUE,
+                       path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
                        ncores = NULL, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
@@ -51,7 +54,6 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   }
   if(is.null(G)) G <- getG(p, n)
   family <- match.arg(family, c("gaussian","binomial","poisson"))
-  do.plot <- match.arg(do.plot, c("cv","mosum","none"))
   loss <- match.arg(loss, c("1","2"))
   if(is.null(lambda)){
     lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/G
@@ -60,14 +62,14 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   path.length <- length(lambda)
   max.cps <- min(max.cps, floor(n/(nu*G)))
   out_cv <- matrix(Inf,path.length, max.cps+1)
-  ranks <- refined_cps <- cps <- out_list <- list()
+  ranks <- refined.cps <- cps <- out_list <- list()
 
 
   ms <- get.cv.detectors(X,y,G,lambda,family, grid.resolution = grid.resolution, ncores = ncores, ...)
   for (ll in 1:path.length) {
     cps[[ll]] <- get_local_maxima(ms$mosum[,ll], 0, G, nu)
     q <- length(cps[[ll]])
-    refined_cps[[ll]] <- cps[[ll]]
+    refined.cps[[ll]] <- cps[[ll]]
     limits <- c(0, cps[[ll]][-q] + floor(diff(cps[[ll]])/2), n)
     if(do.refinement) for (k in 1:q) {
       L_ind <- max(1,cps[[ll]][k]-G- floor(G/2))
@@ -79,11 +81,11 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
       rf <- refinement(X, y, cps[[ll]][k], G, lambda[ll], L_mod,  R_mod,
                        L_min = limits[k], U_max = limits[k+1],
                        family=family)
-      refined_cps[[ll]][k] <- rf$cp
+      refined.cps[[ll]][k] <- rf$cp
     }
     ranks[[ll]] <- rank(-ms$mosum[cps[[ll]],ll])
 
-    out_list[[ll]] <- fit.cv(X,y,refined_cps[[ll]],ranks[[ll]],max.cps, lambda[ll], family = family, loss = loss, folds = folds)
+    out_list[[ll]] <- fit.cv(X,y,refined.cps[[ll]],ranks[[ll]],max.cps, lambda[ll], family = family, loss = loss, folds = folds)
 
     out_cv[ll,1:length(out_list[[ll]]$error)] <- out_list[[ll]]$error
   }
@@ -92,42 +94,71 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   out_lambda <- lambda[min.point[1]]
   out_cps <- cps[[min.point[1]]]
   out_cps <- out_cps[ranks[[min.point[1]]]<=out_q]
-  out_refined_cps <- refined_cps[[min.point[1]]]
-  out_refined_cps <- out_refined_cps[ranks[[min.point[1]]]<=out_q]
+  out_refined.cps <- refined.cps[[min.point[1]]]
+  out_refined.cps <- out_refined.cps[ranks[[min.point[1]]]<=out_q]
 
-  if(out_q==0) out_refined_cps <- out_cps <- NULL
-
+  if(out_q==0) {
+    out_refined.cps <- out_cps <- NULL
+    thr <- Inf
+  } else {
+    thr <- ms$mosum[out_cps[which(ranks[[min.point[1]]] == out_q)],min.point[1]]
+  }
+  out <- list(cps = out_cps, refined.cps = out_refined.cps,
+              G=G, threshold = thr, lambda = out_lambda,
+              detectors = ms, cv = out_cv, model_list = out_list,
+              family = family)
+  attr(out, "pl") <- list(max.cps=max.cps, lambda=lambda, min.point=min.point,ranks=ranks)
+  attr(out, "class") <- "moseg.cv"
   pl <- list()
-  thr <- Inf
-  par(mfrow =c(1,1))
-  if(do.plot == "cv") {
+  if(do.plot){
     par(mfrow=c(2,1))
-    matplot(0:max.cps, t(out_cv), type = 'b', col = 1+1:path.length, pch = 1+1:path.length,
+    plot(out, type = "cv")
+    plot(out, type = "mosum")
+    par(mfrow =c(1,1))
+    pl$mosum <- recordPlot()
+
+  }
+  out$plots <- pl
+  return(out)
+}
+
+
+#' @title Plot the moseg detector
+#' @method plot moseg.cv
+#' @description Plotting method for S3 objects of class \code{moseg.cv}.
+#' @param x \code{moseg.cv} object
+#' @param type plot type, one of \code{"cv","mosum"}
+#' @param ... unused
+#'
+#' @return A cv or detector plot
+#' @export
+plot.moseg.cv <- function(x, type = c("cv","mosum"), ...){
+  type <- match.arg(type, c("cv","mosum"))
+  pln <- attributes(x)$pl
+  max.cps <- pln$max.cps
+  lambda <- pln$lambda
+  path.length <- length(lambda)
+  min.point <- pln$min.point
+  ranks <- pln$ranks
+
+  if(type == "cv") {
+    matplot(0:max.cps, t(x$cv), type = 'b', col = 1+1:path.length, pch = 1+1:path.length,
             xlab = 'q', ylab = 'CV', main = 'CV for change point number estimation', log = "y")
-    abline(v = out_q)
+    abline(v = length(x$cps))
     options(scipen = 2)
     legend('bottomright', legend = lambda, col = 1+1:path.length, pch = 1+1:path.length, lty = 1, cex = .6, title = "lambda")
   }
-  if(do.plot %in% c("cv","mosum") ){
-    if(grid.resolution == 1/G) plot.ts(ms$mosum[,min.point[1]], ylab="Detector", xlab = "Time") # plot test statistic
-    else plot(which(ms$mosum[,min.point[1]]>0), ms$mosum[which(ms$mosum>0),min.point[1]], ylab="Detector",
-              xlab = "Time", ylim = c(0, max(ms$mosum[,min.point[1]])), xlim = c(1,n) )
-    if(out_q>0) { # add estimated cps
-      thr <- ms$mosum[out_cps[which(ranks[[min.point[1]]] == out_q)],min.point[1]]
+  if(type == "mosum"){
+    if(x$detectors$grid.resolution == 1/x$G) plot.ts(x$detectors$mosum[,min.point[1]], ylab="Detector", xlab = "Time") # plot test statistic
+    else plot(which(x$detectors$mosum[,min.point[1]]>0), x$detectors$mosum[which(x$detectors$mosum>0),min.point[1]], ylab="Detector",
+              xlab = "Time", ylim = c(0, max(x$detectors$mosum[,min.point[1]])), xlim = c(1,length(x$detectors$mosum[,1])))
+    if(length(x$cps)>0) { # add estimated cps
+      thr <- x$detector$mosum[x$cps[which(ranks[[min.point[1]]] == x$cps)],min.point[1]]
       abline(h = thr, col = "blue") #add threshold
-      abline(v = out_cps, col = "red")
-      abline(v = out_refined_cps, col = "purple")
+      abline(v = x$cps, col = "red")
+      abline(v = x$refined.cps, col = "purple")
     }
-    par(mfrow =c(1,1))
-    pl$mosum <- recordPlot()
   }
-
-  out <- list(cps = out_cps, refined_cps = out_refined_cps,
-              threshold = thr, lambda = out_lambda,
-              detectors = ms, cv= out_cv, model_list = out_list,
-              plots = pl, family = family)
-  attr(out, "class") <- "moseg"
-  return(out)
 }
 
 #' @title get mosum detectors
@@ -167,7 +198,7 @@ get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","
     }
   }
   stopCluster(cl)
-  return(list(coeffs=coeffs, mosum=mosum))
+  return(list(coeffs=coeffs, mosum=mosum, grid.resolution=grid.resolution))
 }
 
 
@@ -287,24 +318,26 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' @param threshold numeric test rejection threshold; see reference for default choice
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
-#' @param do.plot which plots to return - one of \code{"cv","mosum","none"}
+#' @param do.plot Boolean - return plots
 #' @param do.scale Boolean - scale \code{X,y}
 #' @param ncores number of parallel cores
 #' @param ... optional arguments to \code{glmnet}
 #'
-#' @return List containing
+#' @return \code{moseg.ms.cv} object containing
 #' \itemize{
 #'   \item{\code{anchors}}{ integer vector of estimated change points}
-#'   \item{\code{refined_cps}}{ integer vector of refined change points}
-#'   \item{\code{moseg.G}}{ list of `moseg` objects corresponding to `Gset` in ascending order}
+#'   \item{\code{refined.cps}}{ integer vector of refined change points}
+#'   \item{\code{moseg.G}}{ list of `moseg.cv` objects corresponding to `Gset` in ascending order}
 #' }
+#' @import glmnet
+#' @import doParallel
 #' @export
 #'
 #' @examples
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
 moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
-                                  threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = c("cv","mosum","none"), do.scale = TRUE,
+                                  threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
                                   ncores = NULL, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
@@ -322,7 +355,6 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   if ( !( all(Gset <= n/2) )) stop("All entries of Gset must be at most n/2")
   # if(is.character(lambda))  lambda <-  match.arg(lambda, c("min","1se"))
   family <-  match.arg(family, c("gaussian","binomial","poisson"))
-  do.plot <- match.arg(do.plot, c("cv","mosum","none"))
   # if ( !(threshold.constant >= 0)) stop("threshold.constant must be at least 0")
   if ( !(nu > 0)) stop("nu must be positive")
   # if ( !(threshold.log.constant >= 0)) stop("threshold.log.constant must be at least 0")
@@ -335,10 +367,10 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   for (ii in 1:Glen){
     moseg.G[[ii]] <-  moseg.cv(X, y, G= Gset[ii], lambda =  lambda, family = family, loss = loss, folds = folds,
                                    grid.resolution = grid.resolution[ii], nu = nu,
-                                   do.refinement = FALSE, do.plot = do.plot, ncores = ncores, ...)
+                                   do.refinement = FALSE, do.plot = FALSE, ncores = ncores, ...)
     if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
   }
-  refined_cps <- NULL
+  refined.cps <- NULL
   if(Reject){
     interval <- matrix(0, n, n) #matrix(0, Glen, n) #detection set
     # anchor sets
@@ -403,9 +435,9 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
         }
       }
     }
-    if(do.plot!="none")  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
+    if(do.plot)  par(mfrow = c(max(q%/%6,1) , max(q%%6,1) ))
     # anchors <- sort(anchors) #into ascending order
-    refined_cps <- anchors
+    refined.cps <- anchors
     Gstar <- floor(Gout_min*3/4 + Gout_max/4)
     if(is.null(lambda)) lambda <- moseg.G[[1]]$lambda #| lambda %in% c("1se","min")
     else lambda <- lambda[1]
@@ -427,9 +459,9 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
       rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod,
                        L_min = limits[k], U_max = limits[k+1],
                        family=family)
-      refined_cps[k] <- rf$cp
+      refined.cps[k] <- rf$cp
 
-      if(do.plot!="none"){
+      if(do.plot){
         plot.ts(rf$objective, ylab = "Q", xaxt = "n")
         axis(1, at= 1:(rf$U - rf$L + 1), labels=rf$L:rf$U ) #(anchors[k]-Gstar[k]+1):(anchors[k]+Gstar[k])
         abline(v = which.min(rf$objective), col = "purple")
@@ -440,8 +472,33 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   }
 
 
-  out <- list(anchors= anchors, refined_cps = refined_cps,  moseg.G =moseg.G)
-  attr(out, "class") <- "moseg.ms"
+
+  out <- list(anchors= anchors, refined.cps = refined.cps,  moseg.G =moseg.G)
+  attr(out, "class") <- "moseg.ms.cv"
+  if(do.plot){
+    par(mfrow = c(Glen,1))
+    plot(out)
+    pl <- recordPlot()
+  } else pl <- NULL
+  out$plot <- pl
   return(out)
 }
 
+#' @title Plot the multiscale moseg.cv detector
+#' @method plot moseg.ms.cv
+#' @description Plotting method for S3 objects of class \code{moseg.ms.cv}.
+#' @param x \code{moseg.ms} object
+#' @param type plot type, one of \code{"cv","mosum"}
+#' @param ... unused
+#'
+#' @return cv or detector plots
+#' @export
+plot.moseg.ms.cv <- function(x, type = c("cv","mosum"), ...){
+  Glen <- length(x$moseg.G)
+  par(mfrow = c(Glen,1))
+  for (ii in 1:Glen) {
+    plot(x$moseg.G[[ii]], type = type)
+    if(ii == Glen) abline(v = x$refined.cps, col = "purple")
+  }
+  par(mfrow = c(1,1))
+}

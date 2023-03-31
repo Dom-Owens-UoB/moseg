@@ -21,6 +21,8 @@
 #'   \item{\code{plot}}{ multiscale plot}
 #'   \item{\code{moseg.G}}{ list of `moseg` objects corresponding to `Gset` in ascending order}
 #' }
+#' @import glmnet
+#' @import doParallel
 #' @export
 #'
 #' @seealso  \link[moseg]{moseg.ms.cv}
@@ -153,22 +155,16 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
     if(do.plot) par(mfrow = c(1,1))
     }
 
+
+  }
+  out <- list(anchors= anchors, refined.cps = refined.cps, moseg.G =moseg.G)
+  attr(out, "class") <- "moseg.ms"
   if(do.plot){
     par(mfrow = c(Glen,1))
-    for (ii in 1:Glen) {
-      plot.ts(moseg.G[[ii]]$mosum, ylab="Detector") # plot series
-      abline(h = moseg.G[[ii]]$threshold, col = "blue") #add threshold
-      if(Reject) {
-        abline(v = moseg.G[[ii]]$cps, col = "red")  #add estimated cps
-        if(ii == Glen) abline(v = refined.cps, col = "purple")
-      }
-    }
-    par(mfrow = c(1,1))
+    plot(out)
     pl <- recordPlot()
   } else pl <- NULL
-  }
-  out <- list(anchors= anchors, refined.cps = refined.cps, plot=pl, moseg.G =moseg.G)
-  attr(out, "class") <- "moseg.ms"
+  out$plot <- pl
   return(out)
 }
 

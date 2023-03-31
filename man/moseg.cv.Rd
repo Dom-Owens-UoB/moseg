@@ -17,7 +17,7 @@ moseg.cv(
   path.length = 5,
   grid.resolution = 1/G,
   nu = 0.5,
-  do.plot = c("cv", "mosum", "none"),
+  do.plot = TRUE,
   do.scale = TRUE,
   do.refinement = TRUE,
   ncores = NULL,
@@ -47,7 +47,7 @@ moseg.cv(
 
 \item{nu}{numeric localisation tuning parameter}
 
-\item{do.plot}{which plots to return - one of \code{"cv","mosum","none"}}
+\item{do.plot}{Boolean - return plots}
 
 \item{do.scale}{Boolean - centre and scale \code{X,y}}
 
@@ -58,11 +58,12 @@ moseg.cv(
 \item{...}{optional arguments to \code{glmnet}}
 }
 \value{
-List containing
+\code{moseg.cv} object containing
 \itemize{
   \item{\code{mosum}}{ numeric vector of mosum detector}
   \item{\code{cps}}{ integer vector of estimated change points}
-  \item{\code{refined_cps}}{ integer vector of refined change points}
+  \item{\code{refined.cps}}{ integer vector of refined change points}
+  \item{\code{G}}{ input}
   \item{\code{lambda}}{ selected regularisation parameter}
   \item{\code{threshold}}{ implied threshold}
   \item{\code{detectors}}{ mosum detector series for each \code{lambda} value}
