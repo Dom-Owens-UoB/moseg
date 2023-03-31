@@ -2,7 +2,8 @@
 
 Methods for data segmentation under a sparse regression model. See
 
-Reference
+High-dimensional data segmentation in regression settings permitting heavy tails and temporal dependence, 
+Haeran Cho and Dom Owens, arxiv.org/abs/2209.08892
 
 
 ## Installation
