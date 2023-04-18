@@ -56,7 +56,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   family <- match.arg(family, c("gaussian","binomial","poisson"))
   loss <- match.arg(loss, c("1","2"))
   if(is.null(lambda)){
-    lambda.max <- max( abs(t(y - mean(y)*(1-mean(y)) ) %*% X ) )/G
+    lambda.max <- max( abs(t(y)  %*% X ) )/G
     lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .001), length.out = path.length)), digits = 10)
   }
   path.length <- length(lambda)
