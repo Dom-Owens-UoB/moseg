@@ -1,5 +1,7 @@
 ## cv
-
+#' @title rolling sum
+#' @keywords internal
+rsum <- function(x, n) (cs <- cumsum(x))[-(1:(n-1))] - c(0,cs[1:(length(x)-n)])
 
 #' Detect and estimate multiple change points in the sparse regression model,
 #' selecting the number of change points using sample splitting
@@ -56,7 +58,8 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
   family <- match.arg(family, c("gaussian","binomial","poisson"))
   loss <- match.arg(loss, c("1","2"))
   if(is.null(lambda)){
-    lambda.max <- max( abs(t(y)  %*% X ) )/G
+    yx <- as.numeric(y)  * X
+    lambda.max <- max(abs(apply(yx, 2, function(x) rsum(x, G)))) / G
     lambda <- round(exp(seq(log(lambda.max), log(lambda.max * .001), length.out = path.length)), digits = 10)
   }
   path.length <- length(lambda)
@@ -315,6 +318,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' @param family response type, one of \code{"gaussian","binomial","poisson"}
 #' @param loss l-norm for CV loss function, one of \code{"1", "2"}
 #' @param folds number of folds for CV
+#' @param path.length number of \code{lambda} values to consider
 #' @param threshold numeric test rejection threshold; see reference for default choice
 #' @param grid.resolution controls number of subsamples to take
 #' @param nu numeric localisation tuning parameter
@@ -337,7 +341,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' eqX <- eqdata[,-c(1,9)]
 #' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
 moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
-                                  threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
+                                  path.length = 5, threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
                                   ncores = NULL, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
@@ -366,7 +370,7 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
   Reject <- 0
   for (ii in 1:Glen){
     moseg.G[[ii]] <-  moseg.cv(X, y, G= Gset[ii], lambda =  lambda, family = family, loss = loss, folds = folds,
-                                   grid.resolution = grid.resolution[ii], nu = nu,
+                                   path.length = path.length,  grid.resolution = grid.resolution[ii], nu = nu,
                                    do.refinement = FALSE, do.plot = FALSE, ncores = ncores, ...)
     if(length(moseg.G[[ii]]$cps)>0) Reject <- 1
   }

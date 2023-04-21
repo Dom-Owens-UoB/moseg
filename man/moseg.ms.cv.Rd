@@ -13,6 +13,7 @@ moseg.ms.cv(
   family = c("gaussian", "binomial", "poisson"),
   loss = c("1", "2"),
   folds = 1,
+  path.length = 5,
   threshold = NULL,
   grid.resolution = 1/Gset,
   nu = 0.5,
@@ -36,6 +37,8 @@ moseg.ms.cv(
 \item{loss}{l-norm for CV loss function, one of \code{"1", "2"}}
 
 \item{folds}{number of folds for CV}
+
+\item{path.length}{number of \code{lambda} values to consider}
 
 \item{threshold}{numeric test rejection threshold; see reference for default choice}
 
