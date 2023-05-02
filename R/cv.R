@@ -82,7 +82,7 @@ moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("
       G_window <- (R_ind):(R_ind+G)
       R_mod <- glmnet(X[G_window,], y[G_window], family = family, ...)
       rf <- refinement(X, y, cps[[ll]][k], G, lambda[ll], L_mod,  R_mod,
-                       L_min = limits[k], U_max = limits[k+1],
+                       L_min = limits[k]+1, U_max = limits[k+1]-1,
                        family=family)
       refined.cps[[ll]][k] <- rf$cp
     }
@@ -461,7 +461,7 @@ moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian",
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
 
       rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod,
-                       L_min = limits[k], U_max = limits[k+1],
+                       L_min = limits[k]+1, U_max = limits[k+1]-1,
                        family=family)
       refined.cps[k] <- rf$cp
 

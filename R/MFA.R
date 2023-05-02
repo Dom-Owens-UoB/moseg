@@ -143,7 +143,7 @@ moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian",
       rmod <- glmnet(X[G_window,], y[G_window], family = family, ...)
 
       rf <- refinement(X, y, anchors[k], Gstar[k], lambda, lmod, rmod,
-                       L_min = limits[k], U_max = limits[k+1],
+                       L_min = limits[k]+1, U_max = limits[k+1]-1,
                        family=family)
       refined.cps[k] <- rf$cp
 

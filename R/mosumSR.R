@@ -156,7 +156,7 @@ moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian"
       }
 
       rf <- refinement(X, y, cps[k], G, lambda, model_list[[L_ind]],  model_list[[R_ind ]],
-                       L_min = limits[k], U_max = limits[k+1],
+                       L_min = limits[k]+1, U_max = limits[k+1]-1,
                        family=family)
       refined.cps[k] <- rf$cp
 
