@@ -11,7 +11,7 @@ get.cv.detectors(
   lambda,
   family = c("gaussian", "binomial", "poisson"),
   grid.resolution = 1/G,
-  ncores = NULL,
+  ncores = 1,
   ...
 )
 }

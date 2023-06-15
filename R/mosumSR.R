@@ -71,7 +71,7 @@ get_local_maxima <- function(Tn, D_n, G, nu = 1/4) { ## eta check location
 #' eq_mosum <- moseg(as.matrix(eqX), eqdata[,9], 120, grid.resolution = 1/10, ncores = 2)
 moseg <- function(X, y, G = NULL, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"), threshold = NULL, n.cps = NULL,
                     grid.resolution = 1/G, nu = 0.5, do.refinement = TRUE, do.plot = TRUE, do.scale = TRUE,
-                    ncores = NULL, ...){
+                    ncores = 1, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
   X <- as.matrix(X)

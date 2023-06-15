@@ -20,7 +20,7 @@ moseg.cv(
   do.plot = TRUE,
   do.scale = TRUE,
   do.refinement = TRUE,
-  ncores = NULL,
+  ncores = 1,
   ...
 )
 }

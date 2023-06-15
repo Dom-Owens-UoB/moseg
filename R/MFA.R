@@ -31,7 +31,7 @@
 #' eq_mosum <- moseg.ms(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
 moseg.ms <- function(X, y, Gset, lambda = c("min","1se"), family = c("gaussian","binomial","poisson"),
                                threshold = NULL, grid.resolution = NULL, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
-                               ncores = NULL, ...){
+                               ncores = 1, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
   X <- as.matrix(X)

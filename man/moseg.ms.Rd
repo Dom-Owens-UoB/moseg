@@ -15,7 +15,7 @@ moseg.ms(
   nu = 0.5,
   do.plot = TRUE,
   do.scale = TRUE,
-  ncores = NULL,
+  ncores = 1,
   ...
 )
 }

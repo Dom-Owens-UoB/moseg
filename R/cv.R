@@ -46,7 +46,7 @@ rsum <- function(x, n) (cs <- cumsum(x))[-(1:(n-1))] - c(0,cs[1:(length(x)-n)])
 #' eq_thr <- moseg.cv(as.matrix(eqX), as.matrix(eqdata[,9]), G=120, max.cps = 3, ncores = 2)
 moseg.cv <- function(X, y, G = NULL, lambda = NULL, max.cps = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 2,
                        path.length = 5, grid.resolution = 1/G, nu = 0.5, do.plot = TRUE, do.scale = TRUE, do.refinement = TRUE,
-                       ncores = NULL, ...){
+                       ncores = 1, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
   X <- as.matrix(X)
@@ -166,7 +166,7 @@ plot.moseg.cv <- function(x, type = c("cv","mosum"), ...){
 
 #' @title get mosum detectors
 #' @keywords internal
-get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","poisson"), grid.resolution = 1/G, ncores = NULL, ...){
+get.cv.detectors <- function(X, y, G, lambda, family = c("gaussian","binomial","poisson"), grid.resolution = 1/G, ncores = 1, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
   X <- as.matrix(X)
@@ -342,7 +342,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
 #' eq_mosum <- moseg.ms.cv(as.matrix(eqX), eqdata[,9], c(60,90,120), ncores = 2)
 moseg.ms.cv <- function(X, y, Gset = NULL, lambda = NULL, family = c("gaussian","binomial","poisson"), loss = c("1","2"), folds = 1,
                                   path.length = 5, threshold = NULL, grid.resolution = 1/Gset, nu = 0.5, do.plot = TRUE, do.scale = TRUE,
-                                  ncores = NULL, ...){
+                                  ncores = 1, ...){
   n <- dim(X)[1]
   p <- dim(X)[2]
   X <- as.matrix(X)
