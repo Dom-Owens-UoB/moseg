@@ -248,7 +248,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
   }
   error <- rep(0, q+1)
 
-
+  warning.string <- "Segment too short. Returning Inf. Decrease max.cps to avoid this."
 
 
   for (fold in 1:folds) {
@@ -271,7 +271,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
         out[[ii]][[jj]] <- glmnet(X.train[(starts2[jj]+1):ends2[jj],], y.train[(starts2[jj]+1):ends2[jj]],nfolds = 10,family=family,...)
         preds[(starts[jj]+1):ends[jj],ii] <- predict(out[[ii]][[jj]], X[(starts[jj]+1):ends[jj],], lambda )
       }
-    } else warning("Segment too short. Returning Inf")
+    } else warning(warning.string)
     for (ii in q:1 ) {
       ii_cps <- cps2[ranks<ii]
       out[[ii]] <- out[[ii+1]]
@@ -281,7 +281,7 @@ fit.cv <- function(X, y, cps, ranks, max.cps, lambda, family =  c("gaussian","bi
         out[[ii]][[added_cp]] <- out[[ii]][[added_cp+1]] <- #remove one cp
           glmnet(X.train[(starts2[added_cp]+1):ends2[added_cp+1],], y.train[(starts2[added_cp]+1):ends2[added_cp+1]],nfolds = 10,family=family,...)
         preds[(starts[added_cp]+1):ends[added_cp+1],ii] <- predict(out[[ii]][[added_cp]], X[(starts[added_cp]+1):ends[added_cp+1],], lambda )
-      } else warning("Segment too short. Returning Inf")
+      } else warning(warning.string)
 
     }
     if(loss == "1") for (ii in (q+1):1 ) {
